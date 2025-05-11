@@ -25,6 +25,13 @@ const UserSchema = mongoose.Schema({
   bio: {
     type: String
   },
+  // Enhanced role system
+  role: {
+    type: String,
+    enum: ['admin', 'mod', 'seller', 'member', 'user', 'guest'],
+    default: 'user'
+  },
+  // Legacy fields
   isAdmin: {
     type: Boolean,
     default: false
@@ -32,6 +39,16 @@ const UserSchema = mongoose.Schema({
   isSeller: {
     type: Boolean,
     default: false
+  },
+  // Permissions map
+  permissions: {
+    manageUsers: { type: Boolean, default: false },
+    manageProducts: { type: Boolean, default: false },
+    manageOrders: { type: Boolean, default: false },
+    manageContent: { type: Boolean, default: false },
+    viewAnalytics: { type: Boolean, default: false },
+    useAI: { type: Boolean, default: false },
+    createChannels: { type: Boolean, default: false }
   },
   sellerProfile: {
     storeName: String,
@@ -101,15 +118,102 @@ const UserSchema = mongoose.Schema({
       }
     }]
   },
-  // Access control
+  // Access control (legacy, use role instead)
   roles: {
     type: [String],
     default: ['user']
+  },
+  // User statistics
+  stats: {
+    lastLogin: Date,
+    messagesSent: {
+      type: Number,
+      default: 0
+    },
+    purchasesMade: {
+      type: Number,
+      default: 0
+    },
+    totalSpent: {
+      type: Number,
+      default: 0
+    },
+    accountCreated: {
+      type: Date,
+      default: Date.now
+    }
   },
   date: {
     type: Date,
     default: Date.now
   }
+});
+
+// Set permissions based on role
+UserSchema.pre('save', function(next) {
+  if (this.isModified('role')) {
+    // Reset all permissions
+    this.permissions = {
+      manageUsers: false,
+      manageProducts: false,
+      manageOrders: false,
+      manageContent: false,
+      viewAnalytics: false,
+      useAI: false,
+      createChannels: false
+    };
+    
+    // Set permissions based on role
+    switch (this.role) {
+      case 'admin':
+        this.permissions = {
+          manageUsers: true,
+          manageProducts: true,
+          manageOrders: true,
+          manageContent: true,
+          viewAnalytics: true,
+          useAI: true,
+          createChannels: true
+        };
+        this.isAdmin = true;
+        this.isSeller = true;
+        break;
+      case 'mod':
+        this.permissions = {
+          manageUsers: true,
+          manageContent: true,
+          viewAnalytics: true,
+          useAI: true,
+          createChannels: true
+        };
+        this.isAdmin = false;
+        break;
+      case 'seller':
+        this.permissions = {
+          manageProducts: true,
+          manageOrders: true,
+          viewAnalytics: true,
+          useAI: true,
+          createChannels: true
+        };
+        this.isSeller = true;
+        break;
+      case 'member':
+        this.permissions = {
+          useAI: true,
+          createChannels: true
+        };
+        break;
+      case 'user':
+        this.permissions.useAI = true;
+        break;
+      case 'guest':
+        // No permissions
+        break;
+    }
+  }
+  
+  next();
 });
 
 module.exports = mongoose.model('user', UserSchema);
