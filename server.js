@@ -5,20 +5,31 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const dotenv = require('dotenv');
 
-// Load configuration
-const config = require('./config/config');
+// Load environment variables
+dotenv.config();
 
 // Initialize Express app
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: config.nodeEnv === 'production' ? false : ['http://localhost:3000'],
+    origin: process.env.NODE_ENV === 'production' ? false : ['http://localhost:3000'],
     methods: ['GET', 'POST'],
     credentials: true
   }
 });
+
+// Configuration
+const config = {
+  port: process.env.PORT || 5000,
+  nodeEnv: process.env.NODE_ENV || 'development',
+  mongoURI: process.env.MONGODB_URI || 'mongodb://localhost:27017/k-chat',
+  jwtSecret: process.env.JWT_SECRET || 'secret',
+  uploadPath: process.env.UPLOAD_PATH || './uploads',
+  appDebug: process.env.APP_DEBUG === 'true'
+};
 
 // Middleware
 app.use(cors());
@@ -41,6 +52,27 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/messages', require('./routes/messages'));
 app.use('/api/channels', require('./routes/channels'));
 app.use('/api/ai', require('./routes/ai'));
+app.use('/api/shop', require('./routes/shop'));
+
+// Telegram Bot integration (if configured)
+if (process.env.BOT_TOKEN) {
+  try {
+    const { startBot } = require('./services/telegram/bot');
+    const { getAIResponse } = require('./services/ai/agents');
+    
+    // Start the bot with message handler
+    startBot(async ({ message, userId, firstName }) => {
+      console.log(`Telegram message from ${firstName} (${userId}): ${message}`);
+      return await getAIResponse(userId, message);
+    }).catch(err => {
+      console.error('Failed to start Telegram bot:', err);
+    });
+    
+    console.log('Telegram bot integration enabled');
+  } catch (error) {
+    console.error('Error setting up Telegram bot:', error);
+  }
+}
 
 // Serve static assets in production
 if (config.nodeEnv === 'production') {
