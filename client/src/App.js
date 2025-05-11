@@ -8,6 +8,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Shop from './pages/Shop';
+import Marketplace from './pages/Marketplace';
 import UserSettings from './components/user/UserSettings';
 
 // Context
@@ -51,6 +52,10 @@ const App = () => {
           <Route 
             path="/shop" 
             element={isAuthenticated ? <Shop /> : <Navigate to="/login" />} 
+          />
+          <Route 
+            path="/marketplace" 
+            element={isAuthenticated ? <Marketplace /> : <Navigate to="/login" />} 
           />
           <Route 
             path="/settings" 
