@@ -53,6 +53,7 @@ app.use('/api/messages', require('./routes/messages'));
 app.use('/api/channels', require('./routes/channels'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/shop', require('./routes/shop'));
+app.use('/api/marketplace', require('./routes/marketplace'));
 
 // Telegram Bot integration (if configured)
 if (process.env.BOT_TOKEN) {
@@ -73,6 +74,10 @@ if (process.env.BOT_TOKEN) {
     console.error('Error setting up Telegram bot:', error);
   }
 }
+
+// Serve uploaded files with authentication middleware
+const auth = require('./middleware/auth');
+app.use('/api/uploads', auth, express.static(config.uploadPath));
 
 // Serve static assets in production
 if (config.nodeEnv === 'production') {
