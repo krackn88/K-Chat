@@ -12,6 +12,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import Divider from '@mui/material/Divider';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 
 import AuthContext from '../../context/auth/authContext';
 
@@ -112,8 +113,18 @@ const UserSettings = () => {
         </Box>
       </Paper>
 
-      <Paper sx={{ p: 3 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>Preferences</Typography>
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Typography variant="h6" sx={{ mb: 2 }}>Account</Typography>
+        
+        <Button 
+          variant="outlined" 
+          startIcon={<ShoppingCartIcon />}
+          onClick={() => navigate('/shop')}
+          fullWidth
+          sx={{ mb: 2 }}
+        >
+          Shop for Premium Accounts
+        </Button>
         
         <FormControlLabel 
           control={
@@ -125,9 +136,9 @@ const UserSettings = () => {
           } 
           label="Dark Mode" 
         />
-        
-        <Divider sx={{ my: 2 }} />
-        
+      </Paper>
+      
+      <Paper sx={{ p: 3 }}>
         <Typography variant="h6" sx={{ mb: 2 }}>Security</Typography>
         
         <Button variant="outlined" color="primary">
