@@ -1,136 +1,155 @@
-const { BlobServiceClient, StorageSharedKeyCredential } = require('@azure/storage-blob');
-const dotenv = require('dotenv');
+const { BlobServiceClient } = require('@azure/storage-blob');
+const config = require('../config/config');
+const fs = require('fs');
+const path = require('path');
 
-// Load environment variables
-dotenv.config();
+// Create the BlobServiceClient object with connection string
+const blobServiceClient = BlobServiceClient.fromConnectionString(
+  config.azure.storageConnectionString
+);
 
-// Create the BlobServiceClient
-const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
-const containerName = process.env.AZURE_BLOB_CONTAINER;
+// Get a reference to a container
+const containerClient = blobServiceClient.getContainerClient(
+  config.azure.blobContainer
+);
 
-let blobServiceClient;
-let containerClient;
-
-// Initialize Azure Blob Storage
-const initBlobService = () => {
+/**
+ * Upload a file to Azure Blob Storage
+ * @param {string} filePath - Local path to the file
+ * @param {string} blobName - Name to use for the blob (file in storage)
+ * @returns {Promise<string>} - URL of the uploaded blob
+ */
+const uploadFile = async (filePath, blobName) => {
   try {
-    if (!connectionString) {
-      console.warn('Azure Storage connection string not found. File storage will be unavailable.');
-      return false;
-    }
-
-    blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
-    containerClient = blobServiceClient.getContainerClient(containerName);
+    // Get a block blob client
+    const blockBlobClient = containerClient.getBlockBlobClient(blobName);
     
-    console.log('Azure Blob Storage initialized successfully');
-    return true;
+    // Upload file
+    const data = fs.readFileSync(filePath);
+    const uploadResponse = await blockBlobClient.upload(data, data.length);
+    
+    console.log(`File ${filePath} uploaded successfully to ${blobName}`);
+    
+    // Return the URL to the blob
+    return blockBlobClient.url;
   } catch (error) {
-    console.error('Error initializing Azure Blob Storage:', error);
-    return false;
+    console.error(`Error uploading file to Azure Blob Storage: ${error.message}`);
+    throw error;
   }
 };
 
-// Upload a file to Azure Blob Storage
-const uploadFile = async (filename, content, contentType) => {
+/**
+ * Upload a buffer directly to Azure Blob Storage
+ * @param {Buffer} buffer - The buffer containing file data
+ * @param {string} blobName - Name to use for the blob (file in storage)
+ * @param {string} contentType - MIME type of the file
+ * @returns {Promise<string>} - URL of the uploaded blob
+ */
+const uploadBuffer = async (buffer, blobName, contentType) => {
   try {
-    if (!containerClient) {
-      const initialized = initBlobService();
-      if (!initialized) return null;
-    }
-
-    const blockBlobClient = containerClient.getBlockBlobClient(filename);
-
-    // Upload content
-    const uploadResponse = await blockBlobClient.upload(content, content.length, {
-      blobHTTPHeaders: { blobContentType: contentType }
-    });
-
-    return {
-      filename,
-      url: blockBlobClient.url,
-      success: true
+    // Get a block blob client
+    const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+    
+    // Set the content type
+    const options = {
+      blobHTTPHeaders: {
+        blobContentType: contentType
+      }
     };
+    
+    // Upload buffer
+    const uploadResponse = await blockBlobClient.upload(buffer, buffer.length, options);
+    
+    console.log(`Buffer uploaded successfully to ${blobName}`);
+    
+    // Return the URL to the blob
+    return blockBlobClient.url;
   } catch (error) {
-    console.error('Error uploading file to Azure Blob Storage:', error);
-    return {
-      filename,
-      success: false,
-      error: error.message
-    };
+    console.error(`Error uploading buffer to Azure Blob Storage: ${error.message}`);
+    throw error;
   }
 };
 
-// Download a file from Azure Blob Storage
-const downloadFile = async (filename) => {
+/**
+ * Download a file from Azure Blob Storage
+ * @param {string} blobName - Name of the blob to download
+ * @param {string} downloadPath - Local path to save the downloaded file
+ * @returns {Promise<string>} - Path to the downloaded file
+ */
+const downloadFile = async (blobName, downloadPath) => {
   try {
-    if (!containerClient) {
-      const initialized = initBlobService();
-      if (!initialized) return null;
+    // Get a block blob client
+    const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+    
+    // Create the download directory if it doesn't exist
+    const downloadDir = path.dirname(downloadPath);
+    if (!fs.existsSync(downloadDir)) {
+      fs.mkdirSync(downloadDir, { recursive: true });
     }
-
-    const blockBlobClient = containerClient.getBlockBlobClient(filename);
-    const downloadResponse = await blockBlobClient.download(0);
-
-    // Convert the downloaded response to a buffer
-    const downloaded = await streamToBuffer(downloadResponse.readableStreamBody);
-
-    return {
-      filename,
-      content: downloaded,
-      success: true
-    };
+    
+    // Download the blob to a local file
+    const downloadResponse = await blockBlobClient.downloadToFile(downloadPath);
+    
+    console.log(`File ${blobName} downloaded successfully to ${downloadPath}`);
+    
+    // Return the path to the downloaded file
+    return downloadPath;
   } catch (error) {
-    console.error('Error downloading file from Azure Blob Storage:', error);
-    return {
-      filename,
-      success: false,
-      error: error.message
-    };
+    console.error(`Error downloading file from Azure Blob Storage: ${error.message}`);
+    throw error;
   }
 };
 
-// Delete a file from Azure Blob Storage
-const deleteFile = async (filename) => {
+/**
+ * Delete a blob from storage
+ * @param {string} blobName - Name of the blob to delete
+ * @returns {Promise<void>}
+ */
+const deleteBlob = async (blobName) => {
   try {
-    if (!containerClient) {
-      const initialized = initBlobService();
-      if (!initialized) return null;
-    }
-
-    const blockBlobClient = containerClient.getBlockBlobClient(filename);
+    // Get a block blob client
+    const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+    
+    // Delete the blob
     const deleteResponse = await blockBlobClient.delete();
-
-    return {
-      filename,
-      success: true
-    };
+    
+    console.log(`Blob ${blobName} deleted successfully`);
   } catch (error) {
-    console.error('Error deleting file from Azure Blob Storage:', error);
-    return {
-      filename,
-      success: false,
-      error: error.message
-    };
+    console.error(`Error deleting blob from Azure Blob Storage: ${error.message}`);
+    throw error;
   }
 };
 
-// Helper function to convert a readable stream to a buffer
-async function streamToBuffer(readableStream) {
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    readableStream.on('data', (data) => {
-      chunks.push(data instanceof Buffer ? data : Buffer.from(data));
-    });
-    readableStream.on('end', () => {
-      resolve(Buffer.concat(chunks));
-    });
-    readableStream.on('error', reject);
-  });
-}
+/**
+ * List all blobs in the container
+ * @returns {Promise<Array>} - Array of blob items
+ */
+const listBlobs = async () => {
+  try {
+    const blobs = [];
+    
+    // List all blobs in the container
+    for await (const blob of containerClient.listBlobsFlat()) {
+      blobs.push({
+        name: blob.name,
+        contentType: blob.properties.contentType,
+        createdOn: blob.properties.createdOn,
+        lastModified: blob.properties.lastModified,
+        contentLength: blob.properties.contentLength
+      });
+    }
+    
+    return blobs;
+  } catch (error) {
+    console.error(`Error listing blobs from Azure Blob Storage: ${error.message}`);
+    throw error;
+  }
+};
 
 module.exports = {
-  initBlobService,
   uploadFile,
+  uploadBuffer,
   downloadFile,
-  deleteFile
+  deleteBlob,
+  listBlobs
 };
