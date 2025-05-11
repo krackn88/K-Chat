@@ -7,6 +7,8 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
+import Shop from './pages/Shop';
+import UserSettings from './components/user/UserSettings';
 
 // Context
 import AuthContext from './context/auth/authContext';
@@ -41,8 +43,21 @@ const App = () => {
       <CssBaseline />
       <Router>
         <Routes>
+          {/* Public Routes */}
           <Route path="/login" element={!isAuthenticated && !loading ? <Login /> : <Navigate to="/" />} />
           <Route path="/register" element={!isAuthenticated && !loading ? <Register /> : <Navigate to="/" />} />
+          
+          {/* Protected Routes */}
+          <Route 
+            path="/shop" 
+            element={isAuthenticated ? <Shop /> : <Navigate to="/login" />} 
+          />
+          <Route 
+            path="/settings" 
+            element={isAuthenticated ? <UserSettings /> : <Navigate to="/login" />} 
+          />
+          
+          {/* Dashboard and nested routes */}
           <Route path="/*" element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} />
         </Routes>
       </Router>
