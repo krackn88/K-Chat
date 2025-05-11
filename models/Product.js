@@ -73,6 +73,59 @@ const ProductSchema = mongoose.Schema({
     type: Number,
     default: 0
   },
+  // OpenBullet2 integration
+  obConfigId: {
+    type: String,
+    description: 'OpenBullet2 config ID for stock collection'
+  },
+  obValidationConfigId: {
+    type: String,
+    description: 'OpenBullet2 config ID for validation'
+  },
+  obSchedule: {
+    enabled: {
+      type: Boolean,
+      default: false
+    },
+    frequency: {
+      type: String,
+      enum: ['daily', 'weekly', 'monthly', 'auto'],
+      default: 'auto'
+    },
+    minStock: {
+      type: Number,
+      default: 10
+    },
+    batchSize: {
+      type: Number,
+      default: 100
+    },
+    lastRun: Date,
+    nextRun: Date
+  },
+  // Source and quality metrics
+  sourceInfo: {
+    provider: String,
+    quality: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: 50
+    },
+    validationRate: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: 0
+    },
+    lastValidated: Date
+  },
+  // Database storage - allows switching between MongoDB and PostgreSQL
+  storageType: {
+    type: String,
+    enum: ['mongodb', 'postgres', 'hybrid'],
+    default: 'mongodb'
+  },
   seller: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'user',
