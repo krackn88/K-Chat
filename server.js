@@ -33,8 +33,8 @@ const config = {
 
 // Middleware
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Create uploads directory if it doesn't exist
 if (!fs.existsSync(config.uploadPath)) {
@@ -46,6 +46,28 @@ mongoose.connect(config.mongoURI)
   .then(() => console.log('MongoDB connected'))
   .catch(err => console.error('MongoDB connection error:', err));
 
+// Initialize PostgreSQL database for inventory
+try {
+  const pgDb = require('./services/db/postgres');
+  pgDb.initDatabase()
+    .then(() => console.log('PostgreSQL database initialized'))
+    .catch(err => console.error('Error initializing PostgreSQL database:', err));
+} catch (error) {
+  console.warn('PostgreSQL database not configured:', error.message);
+}
+
+// Start automation agent
+try {
+  if (process.env.ENABLE_AUTOMATION === 'true') {
+    const automation = require('./services/agents/automation');
+    automation.startAllJobs()
+      .then(result => console.log('Automation agents started:', result.message))
+      .catch(err => console.error('Error starting automation agents:', err));
+  }
+} catch (error) {
+  console.warn('Automation not configured:', error.message);
+}
+
 // API routes
 app.use('/api/users', require('./routes/users'));
 app.use('/api/auth', require('./routes/auth'));
@@ -54,6 +76,7 @@ app.use('/api/channels', require('./routes/channels'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/shop', require('./routes/shop'));
 app.use('/api/marketplace', require('./routes/marketplace'));
+app.use('/api/openbullet', require('./routes/openbullet'));
 
 // Telegram Bot integration (if configured)
 if (process.env.BOT_TOKEN) {
