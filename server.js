@@ -4,17 +4,17 @@ const socketIo = require('socket.io');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
-const dotenv = require('dotenv');
+const fs = require('fs');
 
-// Load environment variables
-dotenv.config();
+// Load configuration
+const config = require('./config/config');
 
 // Initialize Express app
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: process.env.NODE_ENV === 'production' ? false : ['http://localhost:3000'],
+    origin: config.nodeEnv === 'production' ? false : ['http://localhost:3000'],
     methods: ['GET', 'POST'],
     credentials: true
   }
@@ -25,8 +25,13 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Create uploads directory if it doesn't exist
+if (!fs.existsSync(config.uploadPath)) {
+  fs.mkdirSync(config.uploadPath, { recursive: true });
+}
+
 // Database connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/k-chat')
+mongoose.connect(config.mongoURI)
   .then(() => console.log('MongoDB connected'))
   .catch(err => console.error('MongoDB connection error:', err));
 
@@ -38,7 +43,7 @@ app.use('/api/channels', require('./routes/channels'));
 app.use('/api/ai', require('./routes/ai'));
 
 // Serve static assets in production
-if (process.env.NODE_ENV === 'production') {
+if (config.nodeEnv === 'production') {
   app.use(express.static('client/build'));
   app.get('*', (req, res) => {
     res.sendFile(path.resolve(__dirname, 'client', 'build', 'index.html'));
@@ -77,6 +82,16 @@ io.on('connection', (socket) => {
   });
 });
 
+// Debug mode logging
+if (config.appDebug) {
+  console.log('Debug mode enabled');
+  app.use((req, res, next) => {
+    console.log(`${req.method} ${req.url}`);
+    next();
+  });
+}
+
 // Start server
-const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(config.port, () => {
+  console.log(`Server running in ${config.nodeEnv} mode on port ${config.port}`);
+});
